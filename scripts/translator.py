@@ -18,6 +18,16 @@ MAX_TOKENS = 50000 #gpt-4-1106-preview
 DISALLOWED_SPECIAL = "<|endoftext|>"
 REPLACEMENT_TOKEN  = "<END_OF_TEXT>"
 
+TOKENIZER_FALLBACKS = [
+    ("gpt-5", "o200k_base"),
+    ("gpt-4o", "o200k_base"),
+    ("gpt-4.1", "o200k_base"),
+    ("gpt-4", "cl100k_base"),
+    ("gpt-3.5", "cl100k_base"),
+]
+
+FINAL_TOKENIZER_FALLBACK = "o200k_base"
+
 def run_git_command_with_retry(cmd, max_retries=1, delay=5, **kwargs):
     """
     Run a git command with retry logic.
@@ -59,8 +69,24 @@ def _sanitize(text: str) -> str:
     """
     return text.replace(DISALLOWED_SPECIAL, REPLACEMENT_TOKEN)
 
+def _get_encoding_for_model(model: str):
+    """
+    Return a tokenizer for the requested model, with fallbacks for newer
+    model names that tiktoken may not recognize yet.
+    """
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        lowered_model = model.lower()
+        for prefix, encoding_name in TOKENIZER_FALLBACKS:
+            if lowered_model.startswith(prefix):
+                print(f"Tokenizer for model {model} not found. Falling back to {encoding_name}.")
+                return tiktoken.get_encoding(encoding_name)
+        print(f"Tokenizer for model {model} not found. Falling back to {FINAL_TOKENIZER_FALLBACK}.")
+        return tiktoken.get_encoding(FINAL_TOKENIZER_FALLBACK)
+
 def reportTokens(prompt, model):
-    encoding = tiktoken.encoding_for_model(model)
+    encoding = _get_encoding_for_model(model)
     # print number of tokens in light gray, with first 50 characters of prompt in green. if truncated, show that it is truncated
     #print("\033[37m" + str(len(encoding.encode(prompt))) + " tokens\033[0m" + " in prompt: " + "\033[92m" + prompt[:50] + "\033[0m" + ("..." if len(prompt) > 50 else ""))
     prompt   = _sanitize(prompt)
@@ -316,6 +342,7 @@ def copy_dirs(source_path, dest_path, folder_names):
             print(f"Error: {source_folder} does not exist.")
         else:
             # Copy the theme folder
+            os.makedirs(os.path.dirname(destination_folder.rstrip(os.sep)) or dest_path, exist_ok=True)
             shutil.copytree(source_folder, destination_folder)
             print(f"Copied {folder_name} folder from {source_folder} to {destination_folder}")
 
@@ -326,6 +353,7 @@ def move_files_to_push(source_path, dest_path, relative_file_paths):
         if not os.path.exists(source_filepath):
             print(f"Error: {source_filepath} does not exist.")
         else:
+            os.makedirs(os.path.dirname(dest_filepath), exist_ok=True)
             shutil.copy2(source_filepath, dest_filepath)
             print(f"[+] Copied {file_path}")
 
