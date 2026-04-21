@@ -1,6 +1,6 @@
 #BuySellAds Inc
 #https://optimizeads.net/
-#AppNexus
+#AppNexusy
 appnexus.com, 8394, DIRECT, f5ab79cb980f11d1
 xandr.com, 8394, DIRECT, f5ab79cb980f11d1
 #Rubicon:
